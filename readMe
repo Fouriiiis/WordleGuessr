@@ -1,0 +1,171 @@
+## Wordle Solver (Entropy + Likelihood) – GUI Assistant
+
+Tired of losing to your friends on Wordle? Want a daily streak that will put them all to shame? Look no futher with this Wordle predictor tool, designed to work with any game.
+
+1. Expected information gain (Shannon entropy) to shrink the search space fast.
+2. A positional letter-frequency likelihood heuristic to suggest the most probable actual answer when you want a direct shot.
+
+You can iteratively enter the guess you played in the real game and click to set the five feedback squares (N → P → C) to filter the candidate list. The tool updates recommendations each turn.
+
+---
+## Features
+
+* GUI (Tkinter) – no terminal typing required
+* Entropy-based recommended guess ("Max‑info guess")
+* Secondary suggestion: most likely remaining answer
+* Clickable 5-tile feedback buttons cycle through: N (gray), P (yellow), C (green)
+* Candidate list auto-updates (first 200 shown; full list popup for more)
+* Copy all remaining candidates to clipboard
+* Works out-of-the-box via a built‑in small fallback word list if no external word files are present
+* Custom word list support (`answers.txt`, `allowed.txt`, or `words.txt`)
+
+---
+## Screens / Flow (Conceptual)
+
+1. Launch app: recommended starting guess appears (usually a high-entropy opener like `slate` / `crane` / `raise` depending on list)
+2. Enter the guess you actually played in Wordle (or click "Use Recommended")
+3. Set feedback tiles by clicking each until they match what the real game showed
+4. Click "Apply Feedback"
+5. Review new candidate count and next recommendation
+6. Repeat until solved (all C's) or no candidates remain (inputs mismatch)
+
+---
+## Running the App
+
+### Prerequisites
+* Python 3.8+ (3.10+ recommended)
+* Tkinter (usually bundled with standard Python on Windows/macOS; on some Linux distros install `python3-tk`)
+
+### Launch (Windows PowerShell example)
+```powershell
+cd "c:\Users\charl\Downloads\WordlePredict"
+python wordleGuessr.py
+```
+
+If Python isn't on PATH, use `py` launcher:
+```powershell
+py wordleGuessr.py
+```
+
+---
+## Word Lists (Customization)
+
+Place any of these (same folder as `wordleGuessr.py`):
+
+| File | Purpose | Notes |
+|------|---------|-------|
+| `answers.txt` | Official/canonical solution list | One 5-letter word per line |
+| `allowed.txt` | Additional allowable guesses | Merged with answers |
+| `words.txt` | Combined (answers + allowed) | If present, overrides the others |
+
+Rules:
+* All words are lowercased internally
+* Non 5-letter or non A–Z entries ignored
+* If only `allowed.txt` exists, it becomes both answer & allowed pool
+* If nothing exists, a small built-in fallback (40 words) is used
+
+---
+## Feedback Encoding (Tiles)
+
+| Symbol | Meaning | Wordle Color |
+|--------|---------|--------------|
+| `C` | Correct letter, correct position | Green |
+| `P` | Letter present somewhere else | Yellow |
+| `N` | Letter not in solution (beyond counted occurrences) | Gray |
+
+Duplicate handling matches Wordle logic: yellows are limited by the remaining unmatched letter counts after greens are fixed.
+
+---
+## Algorithm Overview
+
+### 1. Entropy (Information Gain)
+For each candidate guess, the solver simulates its feedback pattern against every remaining solution candidate. The expected information (in bits) is:
+
+$$ H = - \sum_{pattern} p(pattern) \log_2 p(pattern) $$
+
+The guess with maximal expected reduction of uncertainty is recommended.
+
+Optimization: If the candidate solution set is small (≤ 30), entropy is only evaluated over that set (avoids trying all allowed guesses).
+
+### 2. Likelihood Heuristic
+Counts per-position letter frequencies across remaining candidates. A score sums the frequency of letters appearing in each position (plus a small bonus for letter uniqueness) – the highest-scoring word is shown as the probable direct attempt.
+
+### 3. Candidate Filtering
+After you apply feedback, the candidate list is reduced to only those words which, if they were the hidden answer, would have produced exactly the given pattern for the provided guess.
+
+---
+## Typical Strategy Using the Tool
+1. Use the recommended entropy guess in early turns to carve down the space.
+2. Switch to the most-likely solution once remaining candidates are sufficiently small (e.g. ≤ 4–6).
+3. If two candidates remain, either is generally fine; you may prefer the one covering rarer letters if uncertain.
+
+---
+## Example Walkthrough (Fallback List)
+1. Launch: Recommendation: `slate` (bits ~X.XX) (value varies by list)
+2. You play `SLATE` in Wordle, it returns: gray S, yellow L, gray A, green T, gray E → Pattern: `NP N C N` (spaces added for clarity) → Enter guess `slate`, click tiles to N,P,N,C,N, then Apply.
+3. Candidates drop, new recommendation appears.
+4. Repeat until pattern is all `C`.
+
+---
+## Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Window never appears | Tkinter not installed (Linux) | Install system package: `sudo apt-get install python3-tk` |
+| Unicode / encoding error loading lists | Non-UTF8 file | Save word list as UTF-8 without BOM |
+| No candidates remain unexpectedly | Incorrect feedback entered earlier | Re-check previous patterns; restart session |
+| Colors look odd on some themes | Native button background differences | Still functional; optional refinement would be styling with `ttk.Style` |
+
+If the GUI runs but you previously had a terminal version and typing did nothing: you were likely still using an older script or running inside an environment that swallowed stdin (e.g., a VS Code run config). The GUI version eliminates that issue.
+
+---
+## Extending / Hacking
+Ideas:
+* Add hard mode constraints (enforce known placements & required letters automatically)
+* Cache entropy calculations across turns
+* Multi-thread entropy scoring for large allowed lists
+* Add keyboard shortcuts (Enter to apply, Space to cycle selected tile)
+* Dark mode / theming via `ttk.Style`
+* Export guess history & patterns
+
+Key functions (see `wordleGuessr.py`):
+* `pattern_for(guess, solution)` – generates Wordle feedback
+* `best_entropy_guess(candidates, allowed)` – expected info maximizer
+* `best_likelihood_guess(candidates)` – positional frequency heuristic
+* `filter_candidates(cands, guess, pat)` – reduces candidate set
+
+---
+## Performance Notes
+The entropy loop is O(A * C) per turn (A = number of evaluated guesses, C = remaining candidates). With the small fallback list it's instantaneous. With the full NYT list (~2300 answers, ~13k allowed) you may want to:
+* Keep `answers.txt` only (omit large `allowed.txt`) to reduce search space
+* Add simple memoization of pattern buckets if modifying the code
+
+---
+## License
+Add your preferred license here (e.g., MIT). Example skeleton:
+
+```
+MIT License
+
+Copyright (c) 2025 <Your Name>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+... (full text) ...
+```
+
+---
+## Attribution / Inspiration
+Conceptually inspired by community analyses of Wordle entropy strategies and positional frequency heuristics.
+
+---
+## Quick Start TL;DR
+```powershell
+py wordleGuessr.py
+# Click 'Use Recommended' (optional)
+# Set feedback tiles for your real Wordle guess
+# Click 'Apply Feedback'
+# Repeat until solved
+```
+
+Happy solving!
+
